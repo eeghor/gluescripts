@@ -1,5 +1,6 @@
 // import types
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.functions._
 // in spark-shell Spark session is readily available as spark
 val spark = SparkSession.builder.master("local").appName("test session").getOrCreate()
 // set a smaller number of executors because this is running locally
@@ -10,3 +11,5 @@ val df = spark.read
 			.option("header", "true")
 			.csv("data/sample_LotusCustomer.csv.gz")
 
+// filter out invalid postcodes
+df.withColumn("cleanPostcode", regexp_extract(df("Postcode"),"\b(([2-8]\\d{3})|([8-9]\\d{2}))\b",0)).collect()
