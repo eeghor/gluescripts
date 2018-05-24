@@ -8,6 +8,5 @@ spark.conf.set("spark.sql.shuffle.partitions", "4")
 val df = spark.read
 			.option("inferSchema", "true")
 			.option("header", "true")
-			.option("sep", "|")
-			.csv("data/customer_data.csv")
+			.csv("data/sample_LotusCustomer.csv.gz")
 
