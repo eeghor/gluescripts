@@ -2,6 +2,8 @@
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
+
+val unis = Map("adelaide.edu.au" -> "university of adelaide")
 // in spark-shell Spark session is readily available as spark
 val spark = SparkSession.builder.master("local").appName("test session").getOrCreate()
 // set a smaller number of executors because this is running locally
