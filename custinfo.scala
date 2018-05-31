@@ -1,10 +1,11 @@
-// import types
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
 
 
 def getDomain(s: String): Option[String] = {
+
+	// given a string s, extract the domain part if this string happens to be an email
 
 	try {
 		Some(s.split("@")(1))
@@ -13,8 +14,32 @@ def getDomain(s: String): Option[String] = {
 		case e: Exception => None
 	}
 }
-// method to figure out university email address types
+
+def isStudentOrStaff(s: String): String = {
+
+	// given a string s and if it's an email address, is it a university student or staff?
+
+	val staffPattern = "\\b[a-z-]+\\.*[a-z-]+\\@[a-z]+\\.?edu\\.*(au)*\\b".r
+	val studentPattern = "\\b\\d*\\w+\\d+\\w*\\@[a-z]+\\.?edu\\.*(au)*\\b".r
+
+	val staff_match = staffPattern.findFirstIn(s)
+	val student_match = studentPattern.findFirstIn(s)
+
+	var sos = "no"
+
+	if (staff_match.getOrElse("no") != "no") {sos = "staff"}
+
+	if (student_match.getOrElse("no") != "no") {sos = "student"}
+
+	return sos
+
+
+}
+
+
 def isUni(s: String): String = {
+
+	// given a string s, figure out which university exactly it's from (if any)
 
 	val p = getDomain(s).getOrElse(" ")
 
@@ -58,18 +83,21 @@ def isUni(s: String): String = {
 			case "uwa.edu.au" => "university of western australia"
 			case "westernsydney.edu.au" => "western sydney university"
 			case "uow.edu.au" => "university of wollongong"
-			case _ => "not a uni"
+			case _ => "none"
 			}
 		}
 
 
 val isUniUDF = udf[String, String](isUni)
 
+val isStudentOrStaffUDF = udf[String, String](isStudentOrStaff)
+
 // in spark-shell Spark session is readily available as spark
 val spark = SparkSession.builder.master("local").appName("test session").getOrCreate()
+
 // set a smaller number of executors because this is running locally
 spark.conf.set("spark.sql.shuffle.partitions", "4")
-// read csv
+
 val df = spark.read.option("inferSchema", "true").option("header", "true").csv("data/sample_LotusCustomer.csv.gz")
 			
 val df1 = df.filter(df("CustomerID").isNotNull)
@@ -79,21 +107,20 @@ val df1 = df.filter(df("CustomerID").isNotNull)
 val df2 = df1.withColumn("EmailAddress_", when(df1("EmailAddress").contains("@"), lower(df1("EmailAddress"))).otherwise(""))
 
 val df3 = df2.withColumn("University", isUniUDF(df2("EmailAddress_")))
-				.withColumn("Postcode", regexp_extract(df2("Postcode"),"\\b(([2-8]\\d{3})|([8-9]\\d{2}))\\b",0))
-				.withColumn("Salutation", when(lower(regexp_replace(df2("Salutation"),"[^A-Za-z]",""))
-												.isin(List("mr","ms","mrs","dr","mister","miss"):_*), lower(df("Salutation")))
-												.otherwise(""))
-				.withColumn("DateOfBirth", when(year(df2("DateOfBirth")) < 1918, lit(null)).otherwise(df2("DateOfBirth")))
-				.withColumn("FirstName", ltrim(lower(regexp_replace(df2("FirstName"), "[-]"," "))))
-				.withColumn("LastName", ltrim(lower(regexp_replace(regexp_replace(df2("LastName"),"['`]",""),"[-]"," "))))
-				.withColumn("MobilePhone", regexp_extract(regexp_replace(df2("MobilePhone"),"\\s",""),"(\\+*(?:61)*|0*)(4\\d{8})",2))
-				.withColumn("State", lower(df2("State")))
-				.withColumn("City", lower(df2("City")))
-				.withColumn("CountryName", lower(df2("CountryName")))
-				.select("CustomerID", "Salutation", "FirstName", "LastName", "DateOfBirth", 
-							"CreatedDate", "ModifiedDate", "EmailAddress","University", "State", "City","Postcode",
+			.withColumn("isStudentOrStaff", isStudentOrStaffUDF(df2("EmailAddress_")))
+			.withColumn("Postcode", regexp_extract(df2("Postcode"),"\\b(([2-8]\\d{3})|([8-9]\\d{2}))\\b",0))
+			.withColumn("Salutation", when(lower(regexp_replace(df2("Salutation"),"[^A-Za-z]",""))
+											.isin(List("mr","ms","mrs","dr","mister","miss"):_*), lower(df("Salutation")))
+											.otherwise(""))
+			.withColumn("DateOfBirth", when(year(df2("DateOfBirth")) < 1918, lit(null)).otherwise(df2("DateOfBirth")))
+			.withColumn("FirstName", ltrim(lower(regexp_replace(df2("FirstName"), "[-]"," "))))
+			.withColumn("LastName", ltrim(lower(regexp_replace(regexp_replace(df2("LastName"),"['`]",""),"[-]"," "))))
+			.withColumn("MobilePhone", regexp_extract(regexp_replace(df2("MobilePhone"),"\\s",""),"(\\+*(?:61)*|0*)(4\\d{8})",2))
+			.withColumn("State", lower(df2("State")))
+			.withColumn("City", lower(df2("City")))
+			.withColumn("CountryName", lower(df2("CountryName")))
+			.select("CustomerID", "Salutation", "FirstName", "LastName", "DateOfBirth", 
+						"CreatedDate", "ModifiedDate", "EmailAddress","University", "isStudentOrStaff", "State", "City","Postcode",
 								"CountryName","MobilePhone", "HomePhone", "WorkPhone")
-val df4 = df3.withColumn("isStudent", regexp_extract(df3("EmailAddress"),"\\b[a-z-]+\\.*[a-z-]+\\@[a-z]+\\.?edu\\.*(au)*\b",0))
-	.repartition(1)
-	.write.option("header","true").mode("overwrite").option("compression", "gzip").csv("out")
-
+			.repartition(1)
+			.write.option("header","true").mode("overwrite").option("compression", "gzip").csv("out")
