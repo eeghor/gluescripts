@@ -86,7 +86,7 @@ def get_gender(title, name, email):
 
 		nameparts = {_ for w in  name.split() for _ in w.split('-')}
 
-		_ =  _longest_common(nameparts, set(name_db) | set(hypoc_db))
+		_ =  _longest_commonUDF(nameparts, set(name_db) | set(hypoc_db))
 
 		if not _:
 			pass
@@ -96,7 +96,7 @@ def get_gender(title, name, email):
 		 		name_gender =  name_db[_]
 			else:
 				# find what names corresp.to hypocorism and are in the name database
-				_ =  _longest_common(set( hypoc_db[_]), set( name_db))
+				_ =  _longest_commonUDF(set( hypoc_db[_]), set( name_db))
 
 				if _ and ( name_db[_] != 'u'):
 			 		name_gender =  name_db[_]
@@ -115,12 +115,12 @@ def get_gender(title, name, email):
 									for v in w.split('.') 
 										for q in v.split('-') if q.strip())
 
-		_ =  _longest_common(emailparts, set( name_db))
+		_ =  _longest_commonUDF(emailparts, set( name_db))
 
 		if _ and ( name_db[_] != 'u'):
 			email_gender =  name_db[_]
 		else:
-			_ =  _longest_common(emailparts, set( hypoc_db))
+			_ =  _longest_commonUDF(emailparts, set( hypoc_db))
 
 			if _ and (_ in  name_db) and ( name_db[_]!= 'u'):
 		 		email_gender =  name_db[longest_hyp]
@@ -128,7 +128,7 @@ def get_gender(title, name, email):
 
 				# last resort: grammatical gender
 
-				_ =  _longest_common(emailparts, set( grammg_db))
+				_ =  _longest_commonUDF(emailparts, set( grammg_db))
 
 				if _:
 		 			email_gender =  grammg_db[_]
@@ -258,24 +258,25 @@ df1 = df.filter(df.CustomerID.isNotNull()) \
 		.filter(df.CustomerListID == 2) \
 		.filter(~df.EmailAddress.contains("ticketek"))
 
-df2 = df1.withColumn("EmailAddress_", \
-					when(df1.EmailAddress.contains("@"), lower(df1.EmailAddress)).otherwise(""))
+df2 = df1.withcolumn("emailaddress_", \
+					when(df1.emailaddress.contains("@"), lower(df1.emailaddress)).otherwise(""))
 
-df3 = df2.withColumn("University", isUniUDF(df2.EmailAddress_)) \
-		.withColumn("isStudentOrStaff", isStudentOrStaffUDF(df2.EmailAddress_)) \
-		.withColumn("Postcode", regexp_extract(df2.Postcode,"\\b(([2-8]\\d{3})|([8-9]\\d{2}))\\b",0)) \
-		.withColumn("Salutation", when(lower(regexp_replace(df2.Salutation,"[^A-Za-z]","")) \
-										.isin(["mr","ms","mrs","dr","mister","miss"]), lower(df.Salutation)) \
+df3 = df2.withcolumn("university", isuniudf(df2.emailaddress_)) \
+		.withcolumn("isstudentorstaff", isstudentorstaffudf(df2.emailaddress_)) \
+		.withcolumn("postcode", regexp_extract(df2.postcode,"\\b(([2-8]\\d{3})|([8-9]\\d{2}))\\b",0)) \
+		.withColumn("salutation", when(lower(regexp_replace(df2.salutation,"[^A-Za-z]","")) \
+										.isin(["mr","ms","mrs","dr","mister","miss"]), lower(df.salutation)) \
 										.otherwise("")) \
-		.withColumn("DateOfBirth", when(year(df2.DateOfBirth) < 1918, lit(None)).otherwise(df2.DateOfBirth)) \
-		.withColumn("FirstName", ltrim(lower(regexp_replace(df2.FirstName, "[-]"," ")))) \
-		.withColumn("LastName", ltrim(lower(regexp_replace(regexp_replace(df2.LastName,"['`]",""),"[-]"," ")))) \
-		.withColumn("MobilePhone", regexp_extract(regexp_replace(df2.MobilePhone,"\\s",""),"(\\+*(?:61)*|0*)(4\\d{8})",2)) \
-		.withColumn("State", lower(df2.State)) \
-		.withColumn("City", lower(df2.City)) \
-		.withColumn("CountryName", lower(df2.CountryName)) \
-		.select("CustomerID", "Salutation", "FirstName", "LastName", "DateOfBirth", 
-					"CreatedDate", "ModifiedDate", "EmailAddress","University", "isStudentOrStaff", "State", "City","Postcode",
-							"CountryName","MobilePhone", "HomePhone", "WorkPhone") \
+		.withColumn("dateofbirth", when(year(df2.dateofbirth) < 1918, lit(None)).otherwise(df2.dateofbirth)) \
+		.withColumn("firstname", ltrim(lower(regexp_replace(df2.firstname, "[-]"," ")))) \
+		.withColumn("lastname", ltrim(lower(regexp_replace(regexp_replace(df2.lastname,"['`]",""),"[-]"," ")))) \
+		.withColumn("mobilephone", regexp_extract(regexp_replace(df2.mobilephone,"\\s",""),"(\\+*(?:61)*|0*)(4\\d{8})",2)) \
+		.withColumn("state", lower(df2.state)) \
+		.withColumn("city", lower(df2.city)) \
+		.withColumn("countryname", lower(df2.countryname)) \
+		.withColumn("gender_", get_genderUDF(col("salutation"), col("firstname") + lit(" ") + col("lastname"), col("emailaddress"))) \
+		.select("customerid", "salutation", "gender_", "firstname", "lastname", "dateofbirth", 
+					"createddate", "modifieddate", "emailaddress","university", "isstudentorstaff", "state", "city","postcode",
+							"countryname","mobilephone", "homephone", "workphone") \
 		.repartition(1) \
 		.write.option("header","true").mode("overwrite").option("compression", "gzip").csv("out")
