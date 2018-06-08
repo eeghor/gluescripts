@@ -45,6 +45,34 @@ def getGenderName(s):
 				hyp_cand = builtins.max(unfolded_hypoc, key=len)
 				return name_db[hyp_cand]
 
+def getGenderEmail(s):
+
+	if not s:
+		return None
+		
+	# find any names in the email prefix; ONLY those separated by _, - or . count
+	emailparts = set(q.strip() for w in s.split('_') 
+										for v in w.split('.') 
+											for q in v.split('-') if q.strip())
+
+	_ = builtins.max(emailparts & set(name_db), key=len)
+
+	if _ and (name_db[_] != 'u'):
+		return name_db[_]
+
+	_ = builtins.max(emailparts & set(hypoc_db), key=len)
+
+	if _ and (_ in name_db) and (name_db[_]!= 'u'):
+		return name_db[longest_hyp]
+
+	# last resort: grammatical gender
+
+	_ = builtins.max(emailparts & set(grammg_db), key=len)
+
+	if _:
+		return grammg_db[_]
+
+
 def getDomain(s):
 
 	# given a string s, extract the domain part if this string happens to be an email
