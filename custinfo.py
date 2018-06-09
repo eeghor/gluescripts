@@ -55,23 +55,32 @@ def getGenderEmail(s):
 										for v in w.split('.') 
 											for q in v.split('-') if q.strip())
 
-	_ = builtins.max(emailparts & set(name_db), key=len)
+	names_in_email_ = emailparts & set(name_db)
+	hypocs_in_email_ = emailparts & set(hypoc_db)
+	grammgend_in_email_ = emailparts & set(grammg_db)
 
-	if _ and (name_db[_] != 'u'):
-		return name_db[_]
+	if names_in_email_:
 
-	_ = builtins.max(emailparts & set(hypoc_db), key=len)
+		_ = builtins.max(names_in_email_, key=len)
 
-	if _ and (_ in name_db) and (name_db[_]!= 'u'):
-		return name_db[longest_hyp]
+		if _ and (name_db[_] != 'u'):
+			return name_db[_]
+	
+	if hypocs_in_email_:
 
+		_ = builtins.max(hypocs_in_email_, key=len)
+	
+		if _ and (_ in name_db) and (name_db[_]!= 'u'):
+			return name_db[longest_hyp]
+	
 	# last resort: grammatical gender
+	if grammgend_in_email_:
 
-	_ = builtins.max(emailparts & set(grammg_db), key=len)
-
-	if _:
-		return grammg_db[_]
-
+		_ = builtins.max(grammgend_in_email_, key=len)
+	
+		if _:
+			return grammg_db[_]
+	
 
 def getDomain(s):
 
@@ -152,11 +161,71 @@ def isUni(s):
 		"uow.edu.au" : "university of wollongong"
 		}
 
-	return unis.get(p, "none")
+	tafes = {
+	"hunter.tafensw.edu.au": "hunter institute of tafe",
+	"illawarra.tafensw.edu.au": "illawarra institute of tafe",
+	"newengland.tafensw.edu.au": "new england institute of tafe",
+	"northcoasttafe.edu.au": "north coast institute of tafe",
+	"nsi.tafensw.edu.au": "northern sydney institute of tafe",
+	"rit.tafensw.edu.au": "riverina institute of tafe",
+	"swsi.tafensw.edu.au": "south western sydney institute of tafe",
+	"sydneytafe.edu.au": "sydney institute of tafe",
+	"tafewestern.edu.au": "western institute of tafe",
+	"wsi.tafensw.edu.au": "western sydney institute of tafe",
+	"bendigotafe.edu.au": "bendigo regional institute of tafe",
+	"boxhill.edu.au": "box hill institute",
+	'bhtafe.edu.au': "box hill institute",
+	"chisholm.edu.au": "chisholm institute of tafe",
+	"federationtraining.edu.au": "federation training institute",
+	"federation.edu.au": "federation university australia",
+	"thegordon.edu.au": "gordon institute of tafe",
+	"gotafe.vic.edu.au": "goulburn ovens institute of tafe",
+	"holmesglen.edu.au": "holmesglen institute of tafe",
+	"kangan.edu.au": "kangan institute of tafe",
+	"melbournepolytechnic.edu.au": "melbourne polytechnic tafe",
+	"swsi.tafensw.edu.au": "south west institute of tafe",
+	"sunitafe.edu.au": "sunraysia institute of tafe",
+	"angliss.edu.au": "william angliss institute of tafe",
+	"wodongatafe.edu.au": "wodonga institute of tafe",
+	"tafeqld.edu.au": "tafe queensland",
+	"bn.tafe.qld.gov.au": "tafe queensland",
+	"tafeeastcoast.edu.au": "tafe queensland",
+	"goldcoast.tafe.qld.gov.au": "tafe queensland",
+	"tafenorth.edu.au": "tafe queensland",
+	"tafeskillstech.edu.au": "tafe queensland",
+	"swtafe.edu.au": "south west tafe",
+	"cit.edu.au": "canberra institute of technology",
+	"cyoctafe.wa.edu.au": "c y o’connor college",
+	"central.wa.edu.au": "central institute of tafe of technology",
+	"southmetrotafe.wa.edu.au": "south metropolitan tafe",
+	"challenger.wa.edu.au": "south metropolitan tafe",
+	"durack.edu.au": "durack institute of technology tafe",
+	"pilbara.wa.edu.au": "pilbara insitute of tafe",
+	"goldfields.wa.edu.au": "goldfields institute of technology tafe",
+	"gsit.wa.edu.au": "great southern insitute of technology",
+	"kti.wa.edu.au": "kimberley training institute",
+	"polytechnic.wa.edu.au": "polytechnic west tafe",
+	"swit.wa.edu.au": "south west institute of technology",
+	"wcit.wa.edu.au": "west coast college of tafe",
+	"esc.sa.edu.au": "eynesbury senior college",
+	"ichm.edu.au": "international college of hotel management",
+	"saibt.sa.edu.au": "south australian institute of tafe of business and technology",
+	"tastafe.tas.edu.au": "the institute of tafe tasmania"
+	}
+
+	uni_or_tafe = unis.get(p, None)
+	if not uni_or_tafe:
+		uni_or_tafe = tafes.get(p, None)
+	if uni_or_tafe:
+		return uni_or_tafe
+	else:
+		return 'none'
 
 getGenderTitleUDF = udf(getGenderTitle, StringType())
 
 getGenderNameUDF = udf(getGenderName, StringType())
+
+getGenderEmailUDF = udf(getGenderEmail, StringType())
 
 isUniUDF = udf(isUni, StringType())
 
@@ -177,7 +246,7 @@ df1 = df.filter(df.CustomerID.isNotNull()) \
 df2 = df1.withColumn("EmailAddress_", \
 					when(df1.EmailAddress.contains("@"), lower(df1.EmailAddress)).otherwise(""))
 
-df3 = df2.withColumn("University", isUniUDF(df2.EmailAddress_)) \
+df3 = df2.withColumn("UniOrTAFE", isUniUDF(df2.EmailAddress_)) \
 		.withColumn("isStudentOrStaff", isStudentOrStaffUDF(df2.EmailAddress_)) \
 		.withColumn("Postcode", regexp_extract(df2.Postcode,"\\b(([2-8]\\d{3})|([8-9]\\d{2}))\\b",0)) \
 		.withColumn("Salutation", when(lower(regexp_replace(df2.Salutation,"[^A-Za-z]","")) \
@@ -191,9 +260,11 @@ df3 = df2.withColumn("University", isUniUDF(df2.EmailAddress_)) \
 		.withColumn("City", lower(df2.City)) \
 		.withColumn("CountryName", lower(df2.CountryName))
 
-df4 = df3.withColumn("Gender", getGenderNameUDF(df3.FirstName)) \
-		.select("CustomerID", "Salutation", "Gender", "FirstName", "LastName", "DateOfBirth", 
-					"CreatedDate", "ModifiedDate", "EmailAddress","University", "isStudentOrStaff", "State", "City","Postcode",
+df4 = df3.withColumn("Gender_Title", getGenderTitleUDF(df3.Salutation)) \
+		 .withColumn("Gender_Name", getGenderNameUDF(df3.FirstName)) \
+		 .withColumn("Gender_Email", getGenderEmailUDF(df3.EmailAddress_)) \
+		 .select("CustomerID", "Salutation", "Gender_Title", "Gender_Name", "Gender_Email" , "FirstName", "LastName", "DateOfBirth", 
+					"CreatedDate", "ModifiedDate", "EmailAddress","UniOrTAFE", "isStudentOrStaff", "State", "City","Postcode",
 							"CountryName","MobilePhone", "HomePhone", "WorkPhone") \
 		.repartition(1) \
 		.write.option("header","true").mode("overwrite").option("compression", "gzip").csv("out")
