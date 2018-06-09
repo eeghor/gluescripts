@@ -19,13 +19,18 @@ val grammg_json_as_string = scala.io.Source.fromFile("data/data_grammgender_.jso
 val grammg_db:Map[String,String] = parseFull(grammg_json_as_string).get.asInstanceOf[Map[String, String]]
 
 
-// def getGenderTitle(s: String):
+def getGenderTitle(s: String): String = {
 
-// //	string s is presumably a title
+//	string s is presumably a title
 
-// 	for (g <- "mf"){
-// 		if title_db("common")(g) + title_db['uncommon'][g]):
-// 					return g}
+	for (g <- List("m","f")){
+
+		val all_salutations = title_db("common")(g) ++ title_db("uncommon")(g)
+
+		if (all_salutations.contains(s)){return g}
+			}
+	return ""
+		}
 
 def getDomain(s: String): Option[String] = {
 
@@ -111,6 +116,7 @@ def isUni(s: String): String = {
 			}
 		}
 
+val getGenderTitleUDF = udf[String, String](getGenderTitle)
 
 val isUniUDF = udf[String, String](isUni)
 
@@ -136,14 +142,15 @@ val df3 = df2.withColumn("University", isUniUDF(df2("EmailAddress_")))
 			.withColumn("Salutation", when(lower(regexp_replace(df2("Salutation"),"[^A-Za-z]",""))
 											.isin(List("mr","ms","mrs","dr","mister","miss"):_*), lower(df("Salutation")))
 											.otherwise(""))
-			.withColumn("DateOfBirth", when(year(df2("DateOfBirth")) < 1918, lit(null)).otherwise(df2("DateOfBirth")))
-			.withColumn("FirstName", ltrim(lower(regexp_replace(df2("FirstName"), "[-]"," "))))
-			.withColumn("LastName", ltrim(lower(regexp_replace(regexp_replace(df2("LastName"),"['`]",""),"[-]"," "))))
-			.withColumn("MobilePhone", regexp_extract(regexp_replace(df2("MobilePhone"),"\\s",""),"(\\+*(?:61)*|0*)(4\\d{8})",2))
-			.withColumn("State", lower(df2("State")))
-			.withColumn("City", lower(df2("City")))
-			.withColumn("CountryName", lower(df2("CountryName")))
-			.select("CustomerID", "Salutation", "FirstName", "LastName", "DateOfBirth", 
+val df4 = df3.withColumn("DateOfBirth", when(year(df3("DateOfBirth")) < 1918, lit(null)).otherwise(df3("DateOfBirth")))
+			.withColumn("FirstName", ltrim(lower(regexp_replace(df3("FirstName"), "[-]"," "))))
+			.withColumn("LastName", ltrim(lower(regexp_replace(regexp_replace(df3("LastName"),"['`]",""),"[-]"," "))))
+			.withColumn("MobilePhone", regexp_extract(regexp_replace(df3("MobilePhone"),"\\s",""),"(\\+*(?:61)*|0*)(4\\d{8})",2))
+			.withColumn("State", lower(df3("State")))
+			.withColumn("City", lower(df3("City")))
+			.withColumn("CountryName", lower(df3("CountryName")))
+			.withColumn("Gender_Title", getGenderTitleUDF(df3("Salutation")))
+			.select("CustomerID", "Salutation", "Gender_Title", "FirstName", "LastName", "DateOfBirth", 
 						"CreatedDate", "ModifiedDate", "EmailAddress","University", "isStudentOrStaff", "State", "City","Postcode",
 								"CountryName","MobilePhone", "HomePhone", "WorkPhone")
 			.repartition(1)
