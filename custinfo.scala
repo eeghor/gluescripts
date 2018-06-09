@@ -2,6 +2,30 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
 
+// need to read JSON; using the standard parser but it's deprecated!
+import scala.util.parsing.json.JSON._
+// read JSON as a string
+val names_json_as_string = scala.io.Source.fromFile("data/data_names_.json").mkString
+// convert this string to a map
+val name_db:Map[String,String] = parseFull(names_json_as_string).get.asInstanceOf[Map[String, String]]
+
+val titles_json_as_string = scala.io.Source.fromFile("data/data_salutations_.json").mkString
+val title_db:Map[String,Map[String, List[String]]] = parseFull(titles_json_as_string).get.asInstanceOf[Map[String,Map[String, List[String]]]]
+
+val hypocs_json_as_string = scala.io.Source.fromFile("data/data_hypocorisms_.json").mkString
+val hypoc_db:Map[String,String] = parseFull(hypocs_json_as_string).get.asInstanceOf[Map[String, String]]
+
+val grammg_json_as_string = scala.io.Source.fromFile("data/data_grammgender_.json").mkString
+val grammg_db:Map[String,String] = parseFull(grammg_json_as_string).get.asInstanceOf[Map[String, String]]
+
+
+// def getGenderTitle(s: String):
+
+// //	string s is presumably a title
+
+// 	for (g <- "mf"){
+// 		if title_db("common")(g) + title_db['uncommon'][g]):
+// 					return g}
 
 def getDomain(s: String): Option[String] = {
 
