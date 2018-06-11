@@ -13,7 +13,7 @@ val titles_json_as_string = scala.io.Source.fromFile("data/data_salutations_.jso
 val title_db:Map[String,Map[String, List[String]]] = parseFull(titles_json_as_string).get.asInstanceOf[Map[String,Map[String, List[String]]]]
 
 val hypocs_json_as_string = scala.io.Source.fromFile("data/data_hypocorisms_.json").mkString
-val hypoc_db:Map[String,String] = parseFull(hypocs_json_as_string).get.asInstanceOf[Map[String, String]]
+val hypoc_db:Map[String,Map[String, List[String]]] = parseFull(hypocs_json_as_string).get.asInstanceOf[Map[String,Map[String, List[String]]]]
 
 val grammg_json_as_string = scala.io.Source.fromFile("data/data_grammgender_.json").mkString
 val grammg_db:Map[String,String] = parseFull(grammg_json_as_string).get.asInstanceOf[Map[String, String]]
@@ -31,6 +31,31 @@ def getGenderTitle(s: String): String = {
 			}
 	return ""
 		}
+
+def getGenderName(s: String): String = {
+
+//	s is a string possibly containing name
+
+	val nameparts_incommon = s.split("[-_\\s]") & (name_db.keySet | hypoc_db.keySet)
+
+	if (nameparts_incommon.nonEmpty){
+	
+			val name_cand = nameparts_incommon.maxBy(_.length)
+	
+			// if candidate is name (and not hypoc)
+			if name_db.contains(name_cand){
+				return name_db(name_cand)}
+			else {
+				// find what names corresp.to hypocorism and are in the name database
+				val unfolded_hypoc = hypoc_db(name_cand) & name_db.keySet
+				
+				if unfolded_hypoc.nonEmpty{
+									val hyp_cand = unfolded_hypoc.maxBy(_.length)
+										return name_db(hyp_cand)
+									}
+								}
+					}
+}
 
 def getDomain(s: String): Option[String] = {
 
@@ -117,6 +142,8 @@ def isUni(s: String): String = {
 		}
 
 val getGenderTitleUDF = udf[String, String](getGenderTitle)
+
+val getGenderNameUDF = udf[String, String](getGenderName)
 
 val isUniUDF = udf[String, String](isUni)
 
