@@ -12,6 +12,8 @@ val name_db:Map[String,String] = parseFull(names_json_as_string).get.asInstanceO
 val titles_json_as_string = scala.io.Source.fromFile("data/data_salutations_.json").mkString
 val title_db:Map[String,Map[String, List[String]]] = parseFull(titles_json_as_string).get.asInstanceOf[Map[String,Map[String, List[String]]]]
 
+// hypocs json is like {"al": ["alison", "alexandria", ...
+
 val hypocs_json_as_string = scala.io.Source.fromFile("data/data_hypocorisms_.json").mkString
 val hypoc_db:Map[String,Map[String, List[String]]] = parseFull(hypocs_json_as_string).get.asInstanceOf[Map[String,Map[String, List[String]]]]
 
@@ -36,26 +38,35 @@ def getGenderName(s: String): String = {
 
 //	s is a string possibly containing name
 
-	val nameparts_incommon = s.split("[-_\\s]") & (name_db.keySet | hypoc_db.keySet)
+	val nameparts_incommon = Option(s.split("[-_\\s]").toSet.intersect(name_db.keySet | hypoc_db.keySet))
 
-	if (nameparts_incommon.nonEmpty){
+	nameparts_incommon match {
+
+		case Some(String) => println("something")
+		case None => println("nothing")
+	}
+
+
+	// if (nameparts_incommon.nonEmpty){
 	
-			val name_cand = nameparts_incommon.maxBy(_.length)
+	// 		val name_cand = nameparts_incommon.maxBy(_.length)
+
+	// 		println(name_cand)
 	
-			// if candidate is name (and not hypoc)
-			if name_db.contains(name_cand){
-				return name_db(name_cand)}
-			else {
-				// find what names corresp.to hypocorism and are in the name database
-				val unfolded_hypoc = hypoc_db(name_cand) & name_db.keySet
+	// 		// if candidate is name (and not hypoc)
+	// 		if (name_db.contains(name_cand)){return name_db(name_cand)}
+	// 		else {
+	// 			// find what names corresp.to hypocorism and are in the name database
+	// 			val unfolded_hypoc = hypoc_db(name_cand).toSet.intersect(name_db.keySet)
+
+	// 			println("unfolded_hypoc=" + unfolded_hypoc)
 				
-				if unfolded_hypoc.nonEmpty{
-									val hyp_cand = unfolded_hypoc.maxBy(_.length)
-										return name_db(hyp_cand)
-									}
-								}
-					}
-}
+	// 			if (unfolded_hypoc.nonEmpty){
+	// 								val hyp_cand = unfolded_hypoc.maxBy(_.length)
+	// 									return name_db(hyp_cand)}
+	// 							}
+	// 				}
+				}
 
 def getDomain(s: String): Option[String] = {
 
@@ -177,6 +188,7 @@ val df4 = df3.withColumn("DateOfBirth", when(year(df3("DateOfBirth")) < 1918, li
 			.withColumn("City", lower(df3("City")))
 			.withColumn("CountryName", lower(df3("CountryName")))
 			.withColumn("Gender_Title", getGenderTitleUDF(df3("Salutation")))
+			.withColumn("Gender_Name", getGenderNameUDF(df3("FirstName")))
 			.select("CustomerID", "Salutation", "Gender_Title", "FirstName", "LastName", "DateOfBirth", 
 						"CreatedDate", "ModifiedDate", "EmailAddress","University", "isStudentOrStaff", "State", "City","Postcode",
 								"CountryName","MobilePhone", "HomePhone", "WorkPhone")

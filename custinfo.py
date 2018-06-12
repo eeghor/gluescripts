@@ -213,6 +213,35 @@ def isUni(s):
 	"tastafe.tas.edu.au": "the institute of tafe tasmania"
 	}
 
+	other_collegest = {
+	"csf.edu.au": "college of sports and fitness",
+	"aie.edu.au": "academy of interactive entertainment",
+	"aba.edu.au": "australian business academy",
+	"aif.edu.au": "australian institute of fitness",
+	"aihs.edu.au": "australian international hotel school",
+	"amc.edu.au": "australian maritime college",
+	"chart.edu.au": "capital hairdressing academy & regional training",
+	"ctiaustralia.edu.au": "capital training institute", 
+	"clja.edu.au": "college for law and justice administration",
+	"medentry.edu.au": "medentry umat preparation",
+	"unity.edu.au": "unity college",
+	"ability.edu.au": "ability education",
+	"aca.nsw.edu.au": "academies australasia group of colleges",
+	"aah.edu.au": "academy of applied hypnosis",
+	"access.nsw.edu.au": "access language centre",
+	"actt.edu.au": "actors college of theatre & television",
+	"schoolofbeauty.nsw.edu.au": "advanced school of beauty",
+	"ahbc.nsw.edu.au": "ah & b college",
+	"awcc.edu.au": "albury wodonga community college",
+	"alphacrucis.edu.au": "alphacrucis college",
+	"apm.edu.au": "apm college of business and communication",
+	"ssbt.nsw.edu.au": "apple study group",
+	"apicollege.edu.au": "asia pacific international college",
+	"aspire.edu.au": "aspire institute",
+	"accm.edu.au": "australian college of commerce and management",
+	"acnt.edu.au": "australasian college of natural therapies"
+	}
+
 	uni_or_tafe = unis.get(p, None)
 	if not uni_or_tafe:
 		uni_or_tafe = tafes.get(p, None)
