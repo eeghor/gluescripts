@@ -34,16 +34,19 @@ def getGenderTitle(s: String): String = {
 	return ""
 		}
 
-def getGenderName(s: String): String = {
+def getGenderName(s: String): Option[String] = {
 
 //	s is a string possibly containing name
 
-	val nameparts_incommon = Option(s.split("[-_\\s]").toSet.intersect(name_db.keySet | hypoc_db.keySet))
+	val nameparts_incommon: Option[Set[String]] = Option(s.split("[-_\\s]").toSet.intersect(name_db.keySet | hypoc_db.keySet))
 
 	nameparts_incommon match {
 
-		case Some(String) => println("something")
-		case None => println("nothing")
+		case Some(Set[String]) => {val name_cand = nameparts_incommon.maxBy(_.length)
+			if (name_db.contains(name_cand)){Some(name_db(name_cand))}
+				else {Some("noname")}
+			}
+		case None => Some("result")
 	}
 
 
@@ -154,7 +157,7 @@ def isUni(s: String): String = {
 
 val getGenderTitleUDF = udf[String, String](getGenderTitle)
 
-val getGenderNameUDF = udf[String, String](getGenderName)
+val getGenderNameUDF = udf[Option[String], String](getGenderName)
 
 val isUniUDF = udf[String, String](isUni)
 

@@ -243,6 +243,7 @@ def isUni(s):
 	}
 
 	uni_or_tafe = unis.get(p, None)
+	
 	if not uni_or_tafe:
 		uni_or_tafe = tafes.get(p, None)
 	if uni_or_tafe:
