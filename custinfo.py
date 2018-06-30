@@ -6,6 +6,11 @@ import os
 import json
 import builtins
 
+# business emails
+bemails_db = json.load(open('data/business_email_dict.json'))
+# business phone
+bephone_db = json.load(open('data/business_phone_dict.json'))
+
 # get useful files for gender detection
 name_db, title_db, hypoc_db, grammg_db = [json.load(open(f,'r')) for f in [os.path.join(os.path.dirname(__file__),'data/data_names_.json'), 
 																	 		   os.path.join(os.path.dirname(__file__),'data/data_salutations_.json'), 
@@ -111,6 +116,14 @@ def isStudentOrStaff(s):
 		sos = "student"
 
 	return sos
+
+def getBusiness(s):
+
+	return bemails_db.get(s, None)
+
+def getBusinessPhone(s):
+
+	return bephone_db.get(s, None)
 
 
 def isUni(s):
@@ -253,6 +266,10 @@ def isUni(s):
 
 getGenderTitleUDF = udf(getGenderTitle, StringType())
 
+getBusinessUDF = udf(getBusiness, StringType())
+
+getBusinessPhoneUDF = udf(getBusinessPhone, StringType())
+
 getGenderNameUDF = udf(getGenderName, StringType())
 
 getGenderEmailUDF = udf(getGenderEmail, StringType())
@@ -293,8 +310,10 @@ df3 = df2.withColumn("UniOrTAFE", isUniUDF(df2.EmailAddress_)) \
 df4 = df3.withColumn("Gender_Title", getGenderTitleUDF(df3.Salutation)) \
 		 .withColumn("Gender_Name", getGenderNameUDF(df3.FirstName)) \
 		 .withColumn("Gender_Email", getGenderEmailUDF(df3.EmailAddress_)) \
+		 .withColumn('Business', getBusinessUDF(df3.EmailAddress_)) \
+		 .withColumn('Business2', getBusinessPhoneUDF(df3.MobilePhone)) \
 		 .select("CustomerID", "Salutation", "Gender_Title", "Gender_Name", "Gender_Email" , "FirstName", "LastName", "DateOfBirth", 
-					"CreatedDate", "ModifiedDate", "EmailAddress","UniOrTAFE", "isStudentOrStaff", "State", "City","Postcode",
+					"CreatedDate", "ModifiedDate", "EmailAddress","UniOrTAFE", "isStudentOrStaff", "Business", "Business2", "State", "City","Postcode",
 							"CountryName","MobilePhone", "HomePhone", "WorkPhone") \
 		.repartition(1) \
 		.write.option("header","true").mode("overwrite").option("compression", "gzip").csv("out")
