@@ -17,6 +17,20 @@ name_db, title_db, hypoc_db, grammg_db = [json.load(open(f,'r')) for f in [os.pa
 																	 		os.path.join(os.path.dirname(__file__),'data/data_salutations_.json'), 
 																	 		os.path.join(os.path.dirname(__file__),'data/data_hypocorisms_.json'),
 																	 		os.path.join(os.path.dirname(__file__),'data/data_grammgender_.json')]]
+# role-based email prefixes
+rolebased_db = [line.strip() for line in open('data/rolebased_email_prefixes.txt').readlines() if line.strip()]
+
+# hotel domains
+hotel_domains_db = [line.strip() for line in open('data/hotel_domains.txt').readlines() if line.strip()]
+
+# hotel emails
+hotel_emails_db = [line.strip() for line in open('data/hotel_emails.txt').readlines() if line.strip()]
+
+# travel agent domains
+ta_domains_db = [line.strip() for line in open('data/ta_domains.txt').readlines() if line.strip()]
+
+# hotravel agenttel emails
+ta_emails_db = [line.strip() for line in open('data/ta_emails.txt').readlines() if line.strip()]
 
 def getGenderTitle(s):
 	"""
@@ -86,37 +100,22 @@ def getGenderEmail(s):
 	
 		if _:
 			return grammg_db[_]
-	
-
-# def getDomain(s):
-
-# 	# given a string s, extract the domain part if this string happens to be an email
-
-# 	if not isinstance(s, str):
-# 		return ''
-
-# 	return s.strip().split('@')[-1]
 
 
 def isStudentOrStaff(s):
 
 	# given a string s and if it's an email address, is it a university student or staff?
 
-	staffPattern = re.compile(r"\b^[a-z]+[a-z-\.]+\@[a-z]+\.?edu\.*(au)*\b")
-	studentPattern = re.compile(r"\b\d*\w+\d+\w*\@[a-z]+\.?edu\.*(au)*\b")
+	staffPattern = re.compile(r"\b^[a-z]+[a-z-_\.]+\@[a-z\.]+\.?edu\.*(au)*\b")
+	studentPattern = re.compile(r"\b^[a-z]+[a-z\.]*\d+.*\@[a-z\.]+\.?edu\.*(au)*\b")
 
 	staff_match = re.match(staffPattern, s)
 	student_match = re.match(studentPattern, s)
 
-	sos = "no"
-
 	if staff_match:
-		sos = "staff"
-
-	if student_match:
-		sos = "student"
-
-	return sos
+		return "staff"
+	elif student_match:
+		return "student"
 
 def getBusiness(s):
 	"""
@@ -132,143 +131,6 @@ def isEducation(s):
 
 	return education_db.get(s, None)
 
-# def isUni(s):
-
-# 	# given a string s, figure out which university exactly it's from (if any)
-
-# 	p = getDomain(s)
-
-# 	unis = {
-# 		"adelaide.edu.au" : "university of adelaide",
-# 		"acu.edu.au" : "australian catholic university",
-# 		"anu.edu.au" : "australian national university",
-# 		"bond.edu.au" : "bond university",
-# 		"canberra.edu.au" : "university of canberra",
-# 		"cqu.edu.au" : "cquniversity",
-# 		"cdu.edu.au" : "charles darwin university",
-# 		"csu.edu.au" : "charles sturt university",
-# 		"curtin.edu.au" : "curtin university",
-# 		"deakin.edu.au" : "deakin university",
-# 		"ecu.edu.au" : "edith cowan university",
-# 		"federation.edu.au" : "federation university",
-# 		"flinders.edu.au" : "flinders university",
-# 		"griffith.edu.au" : "griffith university",
-# 		"jcu.edu.au" : "james cook university",
-# 		"latrobe.edu.au" : "la trobe university",
-# 		"mq.edu.au" : "macquarie university",
-# 		"unimelb.edu.au" : "university of melbourne",
-# 		"monash.edu" : "monash university",
-# 		"murdoch.edu.au" : "murdoch university",
-# 		"une.edu.au" : "university of new england",
-# 		"unsw.edu.au" : "university of new south wales",
-# 		"newcastle.edu.au" : "university of newcastle",
-# 		"nd.edu.au" : "university of notre dame",
-# 		"uq.edu.au" : "university of queensland",
-# 		"qut.edu.au" : "qut",
-# 		"rmit.edu.au" : "rmit",
-# 		"unisa.edu.au" : "university of south australia",
-# 		"scu.edu.au" : "southern cross university",
-# 		"usq.edu.au" : "university of southern queensland",
-# 		"usc.edu.au" : "usc",
-# 		"swin.edu.au" : "swinburne university",
-# 		"sydney.edu.au" : "university of sydney",
-# 		"utas.edu.au" : "university of tasmania",
-# 		"uts.edu.au" : "university of technology sydney",
-# 		"vu.edu.au" : "victoria university",
-# 		"uwa.edu.au" : "university of western australia",
-# 		"westernsydney.edu.au" : "western sydney university",
-# 		"uow.edu.au" : "university of wollongong"
-# 		}
-
-# 	tafes = {
-# 	"hunter.tafensw.edu.au": "hunter institute of tafe",
-# 	"illawarra.tafensw.edu.au": "illawarra institute of tafe",
-# 	"newengland.tafensw.edu.au": "new england institute of tafe",
-# 	"northcoasttafe.edu.au": "north coast institute of tafe",
-# 	"nsi.tafensw.edu.au": "northern sydney institute of tafe",
-# 	"rit.tafensw.edu.au": "riverina institute of tafe",
-# 	"swsi.tafensw.edu.au": "south western sydney institute of tafe",
-# 	"sydneytafe.edu.au": "sydney institute of tafe",
-# 	"tafewestern.edu.au": "western institute of tafe",
-# 	"wsi.tafensw.edu.au": "western sydney institute of tafe",
-# 	"bendigotafe.edu.au": "bendigo regional institute of tafe",
-# 	"boxhill.edu.au": "box hill institute",
-# 	'bhtafe.edu.au': "box hill institute",
-# 	"chisholm.edu.au": "chisholm institute of tafe",
-# 	"federationtraining.edu.au": "federation training institute",
-# 	"federation.edu.au": "federation university australia",
-# 	"thegordon.edu.au": "gordon institute of tafe",
-# 	"gotafe.vic.edu.au": "goulburn ovens institute of tafe",
-# 	"holmesglen.edu.au": "holmesglen institute of tafe",
-# 	"kangan.edu.au": "kangan institute of tafe",
-# 	"melbournepolytechnic.edu.au": "melbourne polytechnic tafe",
-# 	"swsi.tafensw.edu.au": "south west institute of tafe",
-# 	"sunitafe.edu.au": "sunraysia institute of tafe",
-# 	"angliss.edu.au": "william angliss institute of tafe",
-# 	"wodongatafe.edu.au": "wodonga institute of tafe",
-# 	"tafeqld.edu.au": "tafe queensland",
-# 	"bn.tafe.qld.gov.au": "tafe queensland",
-# 	"tafeeastcoast.edu.au": "tafe queensland",
-# 	"goldcoast.tafe.qld.gov.au": "tafe queensland",
-# 	"tafenorth.edu.au": "tafe queensland",
-# 	"tafeskillstech.edu.au": "tafe queensland",
-# 	"swtafe.edu.au": "south west tafe",
-# 	"cit.edu.au": "canberra institute of technology",
-# 	"cyoctafe.wa.edu.au": "c y o’connor college",
-# 	"central.wa.edu.au": "central institute of tafe of technology",
-# 	"southmetrotafe.wa.edu.au": "south metropolitan tafe",
-# 	"challenger.wa.edu.au": "south metropolitan tafe",
-# 	"durack.edu.au": "durack institute of technology tafe",
-# 	"pilbara.wa.edu.au": "pilbara insitute of tafe",
-# 	"goldfields.wa.edu.au": "goldfields institute of technology tafe",
-# 	"gsit.wa.edu.au": "great southern insitute of technology",
-# 	"kti.wa.edu.au": "kimberley training institute",
-# 	"polytechnic.wa.edu.au": "polytechnic west tafe",
-# 	"swit.wa.edu.au": "south west institute of technology",
-# 	"wcit.wa.edu.au": "west coast college of tafe",
-# 	"esc.sa.edu.au": "eynesbury senior college",
-# 	"ichm.edu.au": "international college of hotel management",
-# 	"saibt.sa.edu.au": "south australian institute of tafe of business and technology",
-# 	"tastafe.tas.edu.au": "the institute of tafe tasmania"
-# 	}
-
-# 	other_collegest = {
-# 	"csf.edu.au": "college of sports and fitness",
-# 	"aie.edu.au": "academy of interactive entertainment",
-# 	"aba.edu.au": "australian business academy",
-# 	"aif.edu.au": "australian institute of fitness",
-# 	"aihs.edu.au": "australian international hotel school",
-# 	"amc.edu.au": "australian maritime college",
-# 	"chart.edu.au": "capital hairdressing academy & regional training",
-# 	"ctiaustralia.edu.au": "capital training institute", 
-# 	"clja.edu.au": "college for law and justice administration",
-# 	"medentry.edu.au": "medentry umat preparation",
-# 	"unity.edu.au": "unity college",
-# 	"ability.edu.au": "ability education",
-# 	"aca.nsw.edu.au": "academies australasia group of colleges",
-# 	"aah.edu.au": "academy of applied hypnosis",
-# 	"access.nsw.edu.au": "access language centre",
-# 	"actt.edu.au": "actors college of theatre & television",
-# 	"schoolofbeauty.nsw.edu.au": "advanced school of beauty",
-# 	"ahbc.nsw.edu.au": "ah & b college",
-# 	"awcc.edu.au": "albury wodonga community college",
-# 	"alphacrucis.edu.au": "alphacrucis college",
-# 	"apm.edu.au": "apm college of business and communication",
-# 	"ssbt.nsw.edu.au": "apple study group",
-# 	"apicollege.edu.au": "asia pacific international college",
-# 	"aspire.edu.au": "aspire institute",
-# 	"accm.edu.au": "australian college of commerce and management",
-# 	"acnt.edu.au": "australasian college of natural therapies"
-# 	}
-
-# 	uni_or_tafe = unis.get(p, None)
-	
-# 	if not uni_or_tafe:
-# 		uni_or_tafe = tafes.get(p, None)
-# 	if uni_or_tafe:
-# 		return uni_or_tafe
-# 	else:
-# 		return 'none'
 
 getGenderTitleUDF = udf(getGenderTitle, StringType())
 
@@ -281,9 +143,6 @@ getGenderNameUDF = udf(getGenderName, StringType())
 getGenderEmailUDF = udf(getGenderEmail, StringType())
 
 isEducationUDF = udf(isEducation, StringType())
-
-# isUniUDF = udf(isUni, StringType())
-
 
 isStudentOrStaffUDF = udf(isStudentOrStaff, StringType())
 
@@ -306,11 +165,28 @@ df2 = df1.withColumn("EmailAddress_", \
 df3 = df2.withColumn("_tmp", \
 					split(df2.EmailAddress_, '@'))
 
-df3 = df3.withColumn("EmailDomain", df3._tmp.getItem(1)).drop("_tmp")
+df3 = df3.withColumn("EmailDomain", df3._tmp.getItem(1)).withColumn("EmailPrefix", df3._tmp.getItem(0)).drop("_tmp")
+df3 = df3.withColumn("EmailType", when(df3.EmailPrefix.isin(rolebased_db), "role-based"))
 
-df3 = df3.withColumn("Education", isEducationUDF(df3.EmailDomain)).withColumn("StudentOrStaff", isStudentOrStaffUDF(df3.EmailAddress_))
+df3 = df3.withColumn("MobilePhone", regexp_extract(regexp_replace(df3.MobilePhone,"\\s",""),"(\\+*(?:61)*|0*)(4\\d{8})",2))
 
-df3.filter(df3.Education.isNotNull()).select("EmailAddress_", "EmailDomain", "Education", "StudentOrStaff").show()
+df3 = df3.withColumn("Education", isEducationUDF(df3.EmailDomain)) \
+			.withColumn("StudentOrStaff", isStudentOrStaffUDF(df3.EmailAddress_)) \
+			.withColumn('Business1', getBusinessUDF(df3.EmailAddress_)) \
+			 .withColumn('Business2', getBusinessPhoneUDF(df3.MobilePhone))
+
+df3 = df3.withColumn("Business", when(df3.Business1.isNotNull(), df3.Business1).otherwise(df3.Business2)).drop("Business1", "Business2")
+
+df3 = df3.withColumn("isHotel1", when(df3.EmailAddress_.isin(hotel_emails_db), "hotel"))
+df3 = df3.withColumn("isHotel2", when(df3.EmailDomain.isin(hotel_domains_db), "hotel"))
+df3 = df3.withColumn("isHotel", when(df3.isHotel1.isNotNull(), df3.isHotel1).otherwise(df3.isHotel2)).drop("isHotel1", "isHotel2")
+
+df3 = df3.withColumn("isTA1", when(df3.EmailAddress_.isin(ta_emails_db), "travel agent"))
+df3 = df3.withColumn("isTA2", when(df3.EmailDomain.isin(ta_domains_db), "travel agent"))
+df3 = df3.withColumn("isTravelAgent", when(df3.isTA1.isNotNull(), df3.isTA1).otherwise(df3.isTA2)).drop("isTA1", "isTA2")
+
+
+df3.filter(df3.isTravelAgent.isNotNull()).select("EmailAddress_", "Business", "EmailType", "isHotel", "isTravelAgent").show()
 
 # df3 = df2.withColumn("UniOrTAFE", isUniUDF(df2.EmailAddress_)) \
 # 		.withColumn("isStudentOrStaff", isStudentOrStaffUDF(df2.EmailAddress_)) \
