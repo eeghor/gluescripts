@@ -6,6 +6,8 @@ import os
 import json
 import builtins
 
+# --- load data files
+
 # business emails: exact email to business type
 bemails_db = json.load(open('data/business_email_dict.json'))
 # business phone: phone number to business type
@@ -17,6 +19,10 @@ name_db, title_db, hypoc_db, grammg_db = [json.load(open(f,'r')) for f in [os.pa
 																	 		os.path.join(os.path.dirname(__file__),'data/data_salutations_.json'), 
 																	 		os.path.join(os.path.dirname(__file__),'data/data_hypocorisms_.json'),
 																	 		os.path.join(os.path.dirname(__file__),'data/data_grammgender_.json')]]
+
+# email domain parts likely favored by testers
+testers_db = [line.strip() for line in open('data/tester_domains.txt').readlines() if line.strip()]
+
 # role-based email prefixes
 rolebased_db = [line.strip() for line in open('data/rolebased_email_prefixes.txt').readlines() if line.strip()]
 
@@ -29,8 +35,28 @@ hotel_emails_db = [line.strip() for line in open('data/hotel_emails.txt').readli
 # travel agent domains
 ta_domains_db = [line.strip() for line in open('data/ta_domains.txt').readlines() if line.strip()]
 
-# hotravel agenttel emails
+# travel agent emails
 ta_emails_db = [line.strip() for line in open('data/ta_emails.txt').readlines() if line.strip()]
+
+def isTester(name, email_domain):
+
+	if (not name) or (not email_domain):
+		return None
+		
+	has_tester_domain = 0
+
+	for t in testers_db:
+		if t in str(email_domain):
+			has_tester_domain += 1
+			break
+
+	has_tester_name = 1 if set(name.lower().split()) & set('test testing'.split()) else 0
+
+	if has_tester_name and has_tester_domain:
+		return 'yes'
+	else:
+		return 'no'
+
 
 def getGenderTitle(s):
 	"""
@@ -94,12 +120,12 @@ def getGenderEmail(s):
 			return name_db[longest_hyp]
 	
 	# last resort: grammatical gender
-	if grammgend_in_email_:
+	# if grammgend_in_email_:
 
-		_ = builtins.max(grammgend_in_email_, key=len)
+	# 	_ = builtins.max(grammgend_in_email_, key=len)
 	
-		if _:
-			return grammg_db[_]
+	# 	if _:
+	# 		return grammg_db[_]
 
 
 def isStudentOrStaff(s):
@@ -146,6 +172,8 @@ isEducationUDF = udf(isEducation, StringType())
 
 isStudentOrStaffUDF = udf(isStudentOrStaff, StringType())
 
+isTesterUDF = udf(isTester, StringType())
+
 # in pyspark Spark session is readily available as spark
 spark = SparkSession.builder.master("local").appName("test session").getOrCreate()
 
@@ -154,21 +182,42 @@ spark.conf.set("spark.sql.shuffle.partitions", "4")
 
 df = spark.read.option("inferSchema", "true").option("header", "true").csv("data/sample_LotusCustomer.csv.gz")
 
-df1 = df.filter(df.CustomerID.isNotNull()) \
-		.filter(df.CustomerListID == 2) \
-		.filter(~(df.EmailAddress.contains("@ticketek") | df.EmailAddress.contains("@teg-")))
+# filter useless stuff out first
+df1 = df.select("CustomerID", "Salutation", "FirstName", "LastName", "DateOfBirth", "EmailAddress", 
+				"Postcode", "MobilePhone", "HomePhone", "WorkPhone", "CustomerListID") \
+		.filter(df.CustomerID.isNotNull()) \
+		.filter(df.CustomerListID == 2) 
+		# .filter(~(df.EmailAddress.contains("@ticketek") | df.EmailAddress.contains("@teg-")))
 
 # create a lower case trimmed email address 
 df2 = df1.withColumn("EmailAddress_", \
-					when(df1.EmailAddress.contains("@"), rtrim(ltrim(lower(df1.EmailAddress)))).otherwise(""))
+			when(df1.EmailAddress.contains("@"), rtrim(ltrim(lower(df1.EmailAddress)))).otherwise("")) \
+		 .withColumn("Postcode", regexp_extract(df1.Postcode,"\\b(([2-8]\\d{3})|([8-9]\\d{2}))\\b",0)) \
+		 .withColumn("Salutation", when(lower(regexp_replace(df1.Salutation,"[^A-Za-z]","")) \
+		 								.isin(["mr","ms","mrs","dr","mister","miss"]), lower(df1.Salutation)) \
+		 								.otherwise("")) \
+		 .withColumn("DateOfBirth", when(year(df1.DateOfBirth) < 1918, lit(None)).otherwise(df1.DateOfBirth)) \
+		 .withColumn("FirstName", rtrim(ltrim(lower(regexp_replace(df1.FirstName, "[-]"," "))))) \
+		 .withColumn("LastName", rtrim(ltrim(lower(regexp_replace(regexp_replace(df1.LastName,"['`]",""),"[-]"," "))))) \
+		 .withColumn("MobilePhone", regexp_extract(regexp_replace(df1.MobilePhone,"\\s",""),"(\\+*(?:61)*|0*)(4\\d{8})",2))
 
-df3 = df2.withColumn("_tmp", \
-					split(df2.EmailAddress_, '@'))
+df2 = df2.withColumn("Age", floor(datediff(current_date(), "DateOfBirth")/365))
 
+df3  = df2.withColumn("Gender_Title", getGenderTitleUDF(df2.Salutation)) \
+		 	.withColumn("Gender_Name", getGenderNameUDF(df2.FirstName)) \
+		 	.withColumn("Gender_Email", getGenderEmailUDF(df2.EmailAddress_))
+
+df3 = df3.withColumn("Gender", when(df3.Gender_Title.isNotNull(), 
+										df3.Gender_Title).otherwise(when(df3.Gender_Name.isNotNull(), 
+											df3.Gender_Name).otherwise(df3.Gender_Email))).drop("Gender_Title", "Gender_Name", "Gender_Email")
+
+
+df3 = df3.withColumn("_tmp", \
+					split(df3.EmailAddress_, '@'))
 df3 = df3.withColumn("EmailDomain", df3._tmp.getItem(1)).withColumn("EmailPrefix", df3._tmp.getItem(0)).drop("_tmp")
-df3 = df3.withColumn("EmailType", when(df3.EmailPrefix.isin(rolebased_db), "role-based"))
+df3 = df3.withColumn("EmailRoleBased", when(df3.EmailPrefix.isin(rolebased_db), "yes").otherwise("no"))
 
-df3 = df3.withColumn("MobilePhone", regexp_extract(regexp_replace(df3.MobilePhone,"\\s",""),"(\\+*(?:61)*|0*)(4\\d{8})",2))
+df3 = df3.withColumn("isTester", isTesterUDF(concat(df3.FirstName, lit(' '), df3.LastName), df3.EmailDomain))
 
 df3 = df3.withColumn("Education", isEducationUDF(df3.EmailDomain)) \
 			.withColumn("StudentOrStaff", isStudentOrStaffUDF(df3.EmailAddress_)) \
@@ -177,38 +226,24 @@ df3 = df3.withColumn("Education", isEducationUDF(df3.EmailDomain)) \
 
 df3 = df3.withColumn("Business", when(df3.Business1.isNotNull(), df3.Business1).otherwise(df3.Business2)).drop("Business1", "Business2")
 
-df3 = df3.withColumn("isHotel1", when(df3.EmailAddress_.isin(hotel_emails_db), "hotel"))
-df3 = df3.withColumn("isHotel2", when(df3.EmailDomain.isin(hotel_domains_db), "hotel"))
-df3 = df3.withColumn("isHotel", when(df3.isHotel1.isNotNull(), df3.isHotel1).otherwise(df3.isHotel2)).drop("isHotel1", "isHotel2")
+# travel agents; it's important that business type is 'travel agents' because that's what it is on YellowPages
+df3 = df3.withColumn("isTA1", when(df3.EmailAddress_.isin(ta_emails_db), "travel agents"))
+df3 = df3.withColumn("isTA2", when(df3.EmailDomain.isin(ta_domains_db), "travel agents"))
 
-df3 = df3.withColumn("isTA1", when(df3.EmailAddress_.isin(ta_emails_db), "travel agent"))
-df3 = df3.withColumn("isTA2", when(df3.EmailDomain.isin(ta_domains_db), "travel agent"))
-df3 = df3.withColumn("isTravelAgent", when(df3.isTA1.isNotNull(), df3.isTA1).otherwise(df3.isTA2)).drop("isTA1", "isTA2")
+df3 = df3.withColumn("Business", when(df3.isTA1.isNotNull(), 
+										df3.isTA1).otherwise(when(df3.isTA2.isNotNull(), 
+											df3.isTA2).otherwise(df3.Business))).drop("isTA1", "isTA2")
+
+df3 = df3.withColumn("isHotel1", when(df3.EmailAddress_.isin(hotel_emails_db), "hotels & accommodation"))
+df3 = df3.withColumn("isHotel2", when(df3.EmailDomain.isin(hotel_domains_db), "hotels & accommodation"))
+
+df3 = df3.withColumn("Business", when(df3.isHotel1.isNotNull(), 
+										df3.isHotel1).otherwise(when(df3.isHotel2.isNotNull(), 
+											df3.isHotel2).otherwise(df3.Business))).drop("isHotel1", "isHotel2")
 
 
-df3.filter(df3.isTravelAgent.isNotNull()).select("EmailAddress_", "Business", "EmailType", "isHotel", "isTravelAgent").show()
+df3.filter(df3.isTester.isNotNull()).select("CustomerID", "Salutation", "FirstName", "LastName", "Gender", "DateOfBirth", 
+	"Age", "EmailAddress_", "Business", "EmailRoleBased", "Education", "isTester").show()
 
-# df3 = df2.withColumn("UniOrTAFE", isUniUDF(df2.EmailAddress_)) \
-# 		.withColumn("isStudentOrStaff", isStudentOrStaffUDF(df2.EmailAddress_)) \
-# 		.withColumn("Postcode", regexp_extract(df2.Postcode,"\\b(([2-8]\\d{3})|([8-9]\\d{2}))\\b",0)) \
-# 		.withColumn("Salutation", when(lower(regexp_replace(df2.Salutation,"[^A-Za-z]","")) \
-# 										.isin(["mr","ms","mrs","dr","mister","miss"]), lower(df.Salutation)) \
-# 										.otherwise("")) \
-# 		.withColumn("DateOfBirth", when(year(df2.DateOfBirth) < 1918, lit(None)).otherwise(df2.DateOfBirth)) \
-# 		.withColumn("FirstName", ltrim(lower(regexp_replace(df2.FirstName, "[-]"," ")))) \
-# 		.withColumn("LastName", ltrim(lower(regexp_replace(regexp_replace(df2.LastName,"['`]",""),"[-]"," ")))) \
-# 		.withColumn("MobilePhone", regexp_extract(regexp_replace(df2.MobilePhone,"\\s",""),"(\\+*(?:61)*|0*)(4\\d{8})",2)) \
-# 		.withColumn("State", lower(df2.State)) \
-# 		.withColumn("City", lower(df2.City)) \
-# 		.withColumn("CountryName", lower(df2.CountryName))
-
-# df4 = df3.withColumn("Gender_Title", getGenderTitleUDF(df3.Salutation)) \
-# 		 .withColumn("Gender_Name", getGenderNameUDF(df3.FirstName)) \
-# 		 .withColumn("Gender_Email", getGenderEmailUDF(df3.EmailAddress_)) \
-# 		 .withColumn('Business1', getBusinessUDF(df3.EmailAddress_)) \
-# 		 .withColumn('Business2', getBusinessPhoneUDF(df3.MobilePhone)) \
-# 		 .select("CustomerID", "Salutation", "Gender_Title", "Gender_Name", "Gender_Email" , "FirstName", "LastName", "DateOfBirth", 
-# 					"CreatedDate", "ModifiedDate", "EmailAddress","UniOrTAFE", "isStudentOrStaff", "Business1", "Business2", "State", "City","Postcode",
-# 							"CountryName","MobilePhone", "HomePhone", "WorkPhone") \
-# 		.repartition(1) \
-# 		.write.option("header","true").mode("overwrite").option("compression", "gzip").csv("out")
+df3.repartition(1) \
+		.write.mode("overwrite").parquet("out")
