@@ -190,7 +190,7 @@ df1 = df.select("CustomerID", "Salutation", "FirstName", "LastName", "DateOfBirt
 		# .filter(~(df.EmailAddress.contains("@ticketek") | df.EmailAddress.contains("@teg-")))
 
 # create a lower case trimmed email address 
-df2 = df1.withColumn("EmailAddress_", \
+df2 = df1.withColumn("EmailAddress", \
 			when(df1.EmailAddress.contains("@"), rtrim(ltrim(lower(df1.EmailAddress)))).otherwise("")) \
 		 .withColumn("Postcode", regexp_extract(df1.Postcode,"\\b(([2-8]\\d{3})|([8-9]\\d{2}))\\b",0)) \
 		 .withColumn("Salutation", when(lower(regexp_replace(df1.Salutation,"[^A-Za-z]","")) \
@@ -205,7 +205,7 @@ df2 = df2.withColumn("Age", floor(datediff(current_date(), "DateOfBirth")/365))
 
 df3  = df2.withColumn("Gender_Title", getGenderTitleUDF(df2.Salutation)) \
 		 	.withColumn("Gender_Name", getGenderNameUDF(df2.FirstName)) \
-		 	.withColumn("Gender_Email", getGenderEmailUDF(df2.EmailAddress_))
+		 	.withColumn("Gender_Email", getGenderEmailUDF(df2.EmailAddress))
 
 df3 = df3.withColumn("Gender", when(df3.Gender_Title.isNotNull(), 
 										df3.Gender_Title).otherwise(when(df3.Gender_Name.isNotNull(), 
@@ -213,28 +213,28 @@ df3 = df3.withColumn("Gender", when(df3.Gender_Title.isNotNull(),
 
 
 df3 = df3.withColumn("_tmp", \
-					split(df3.EmailAddress_, '@'))
+					split(df3.EmailAddress, '@'))
 df3 = df3.withColumn("EmailDomain", df3._tmp.getItem(1)).withColumn("EmailPrefix", df3._tmp.getItem(0)).drop("_tmp")
-df3 = df3.withColumn("EmailRoleBased", when(df3.EmailPrefix.isin(rolebased_db), "yes").otherwise("no"))
+df3 = df3.withColumn("EmailType", when(df3.EmailPrefix.isin(rolebased_db), "role based"))
 
 df3 = df3.withColumn("isTester", isTesterUDF(concat(df3.FirstName, lit(' '), df3.LastName), df3.EmailDomain))
 
 df3 = df3.withColumn("Education", isEducationUDF(df3.EmailDomain)) \
-			.withColumn("StudentOrStaff", isStudentOrStaffUDF(df3.EmailAddress_)) \
-			.withColumn('Business1', getBusinessUDF(df3.EmailAddress_)) \
+			.withColumn("StudentOrStaff", isStudentOrStaffUDF(df3.EmailAddress)) \
+			.withColumn('Business1', getBusinessUDF(df3.EmailAddress)) \
 			 .withColumn('Business2', getBusinessPhoneUDF(df3.MobilePhone))
 
 df3 = df3.withColumn("Business", when(df3.Business1.isNotNull(), df3.Business1).otherwise(df3.Business2)).drop("Business1", "Business2")
 
 # travel agents; it's important that business type is 'travel agents' because that's what it is on YellowPages
-df3 = df3.withColumn("isTA1", when(df3.EmailAddress_.isin(ta_emails_db), "travel agents"))
+df3 = df3.withColumn("isTA1", when(df3.EmailAddress.isin(ta_emails_db), "travel agents"))
 df3 = df3.withColumn("isTA2", when(df3.EmailDomain.isin(ta_domains_db), "travel agents"))
 
 df3 = df3.withColumn("Business", when(df3.isTA1.isNotNull(), 
 										df3.isTA1).otherwise(when(df3.isTA2.isNotNull(), 
 											df3.isTA2).otherwise(df3.Business))).drop("isTA1", "isTA2")
 
-df3 = df3.withColumn("isHotel1", when(df3.EmailAddress_.isin(hotel_emails_db), "hotels & accommodation"))
+df3 = df3.withColumn("isHotel1", when(df3.EmailAddress.isin(hotel_emails_db), "hotels & accommodation"))
 df3 = df3.withColumn("isHotel2", when(df3.EmailDomain.isin(hotel_domains_db), "hotels & accommodation"))
 
 df3 = df3.withColumn("Business", when(df3.isHotel1.isNotNull(), 
@@ -243,7 +243,6 @@ df3 = df3.withColumn("Business", when(df3.isHotel1.isNotNull(),
 
 
 df3.filter(df3.isTester.isNotNull()).select("CustomerID", "Salutation", "FirstName", "LastName", "Gender", "DateOfBirth", 
-	"Age", "EmailAddress_", "Business", "EmailRoleBased", "Education", "isTester").show()
+	"Age", "EmailAddress", "Business", "EmailType", "Education", "StudentOrStaff", "isTester").show()
 
-df3.repartition(1) \
-		.write.mode("overwrite").parquet("out")
+df3.repartition(1).write.mode("overwrite").parquet("out")
